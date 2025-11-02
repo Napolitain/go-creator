@@ -68,7 +68,10 @@ func GenerateVideos(slides []string, audiosLangToPath map[string][]string, dataD
 	}
 	cacheDir := filepath.Join(dataDir, "cache")
 	if _, err := os.Stat(cacheDir); os.IsNotExist(err) {
-		os.Mkdir(cacheDir, os.ModePerm)
+		if err := os.Mkdir(cacheDir, os.ModePerm); err != nil {
+			logger.Error("Failed to create cache directory", "error", err)
+			os.Exit(1)
+		}
 	}
 
 	for audioLang, audioList := range audiosLangToPath {
