@@ -78,7 +78,10 @@ func GenerateVideos(slides []string, audiosLangToPath map[string][]string, dataD
 		}
 		videoDir := filepath.Join(langDir, "videos")
 		if _, err := os.Stat(videoDir); os.IsNotExist(err) {
-			os.Mkdir(videoDir, os.ModePerm)
+			if err := os.Mkdir(videoDir, os.ModePerm); err != nil {
+				logger.Error("Failed to create video directory", "error", err, "dir", videoDir)
+				os.Exit(1)
+			}
 		}
 
 		if len(slides) != len(audioList) {
