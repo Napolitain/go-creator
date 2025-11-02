@@ -135,9 +135,9 @@ func (s *VideoService) generateSingleVideo(slidePath, audioPath, outputPath stri
 			padFilter := fmt.Sprintf("pad=%d:%d:(ow-iw)/2:(oh-ih)/2,setsar=1", targetWidth, targetHeight)
 			filterComplex := fmt.Sprintf("[0:v]%s,%s[v]", scaleFilter, padFilter)
 
-			// Use video duration as primary, trim/pad audio to match
-			cmd = exec.Command("ffmpeg", "-y", 
-				"-t", fmt.Sprintf("%.2f", videoDuration), "-i", slidePath,
+			// Use video duration as primary, trim audio to match if longer
+			cmd = exec.Command("ffmpeg", "-y",
+				"-i", slidePath,
 				"-i", audioPath,
 				"-filter_complex", filterComplex,
 				"-map", "[v]", "-map", "1:a:0",
@@ -149,7 +149,7 @@ func (s *VideoService) generateSingleVideo(slidePath, audioPath, outputPath stri
 		} else {
 			// No scaling needed for video
 			cmd = exec.Command("ffmpeg", "-y",
-				"-t", fmt.Sprintf("%.2f", videoDuration), "-i", slidePath,
+				"-i", slidePath,
 				"-i", audioPath,
 				"-map", "0:v:0", "-map", "1:a:0",
 				"-c:v", "libx264",
