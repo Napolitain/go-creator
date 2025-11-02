@@ -1,8 +1,7 @@
-package main
+package cli
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"log/slog"
 	"os"
@@ -14,23 +13,39 @@ import (
 
 	"github.com/openai/openai-go/v3"
 	"github.com/spf13/afero"
+	"github.com/spf13/cobra"
 )
 
-func main() {
+// NewCreateCommand creates the create command
+func NewCreateCommand() *cobra.Command {
+	var inputLang string
+	var outputLangs string
+
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create videos with translations",
+		Long:  `Create videos by processing text files, generating translations, audio, and combining with slides.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCreate(inputLang, outputLangs)
+		},
+	}
+
+	cmd.Flags().StringVarP(&inputLang, "lang", "l", "en", "Language of the text input")
+	cmd.Flags().StringVarP(&outputLangs, "langs-out", "o", "en", "Comma-separated list of output languages")
+
+	return cmd
+}
+
+func runCreate(inputLang, outputLangs string) error {
 	// Setup structured logging
 	slogger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	logger := &interfaces.SlogLogger{Logger: slogger}
-
-	// Parse flags
-	inputLang := flag.String("lang", "en", "Language of the text input")
-	outputLangs := flag.String("langs-out", "en", "Comma-separated list of output languages")
-	flag.Parse()
 
 	// Get working directory
 	rootDir, err := os.Getwd()
 	if err != nil {
 		logger.Error("Failed to get working directory", "error", err)
-		os.Exit(1)
+		return err
 	}
 
 	// Initialize dependencies
@@ -57,12 +72,12 @@ func main() {
 	)
 
 	// Parse output languages and ensure input language is included
-	langsOut := parseLanguages(*outputLangs, *inputLang)
+	langsOut := parseLanguages(outputLangs, inputLang)
 
 	// Create configuration
 	cfg := services.VideoCreatorConfig{
 		RootDir:     rootDir,
-		InputLang:   *inputLang,
+		InputLang:   inputLang,
 		OutputLangs: langsOut,
 	}
 
@@ -70,10 +85,11 @@ func main() {
 	ctx := context.Background()
 	if err := creator.Create(ctx, cfg); err != nil {
 		logger.Error("Video creation failed", "error", err)
-		os.Exit(1)
+		return err
 	}
 
 	fmt.Println("All videos created successfully!")
+	return nil
 }
 
 // parseLanguages ensures the input language is first in the output list
