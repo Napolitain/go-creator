@@ -48,22 +48,11 @@ gocreator create --lang en --langs-out en,fr,es
 
 To use Google Slides API, you need to:
 
-1. **Set up Google Cloud Project**:
-   - Go to [Google Cloud Console](https://console.cloud.google.com/)
-   - Create a new project or select an existing one
-   - Enable the Google Slides API
-   - Create credentials (Service Account or OAuth 2.0)
-   - Download the credentials JSON file
-
-2. **Set environment variables**:
-   ```bash
-   export GOOGLE_APPLICATION_CREDENTIALS="/path/to/credentials.json"
-   ```
-
-3. **Run with Google Slides**:
-   ```bash
-   gocreator create --google-slides YOUR_PRESENTATION_ID --lang en --langs-out en,fr,es
-   ```
+1. **Set up Google Cloud Project** and enable Google Slides API
+2. **Create service account credentials** and download JSON file
+3. **Share your presentation** with the service account email
+4. **Set environment variable**: `export GOOGLE_APPLICATION_CREDENTIALS="/path/to/credentials.json"`
+5. **Run with Google Slides**: `gocreator create --google-slides YOUR_PRESENTATION_ID --lang en --langs-out en,fr,es`
 
 The presentation ID can be found in the Google Slides URL:
 ```
@@ -75,6 +64,8 @@ https://docs.google.com/presentation/d/[PRESENTATION_ID]/edit
 - Speaker notes from each slide are used as the narration text
 - Videos are generated with audio in multiple languages
 - All content is cached for efficient re-generation
+
+📖 **See [GOOGLE_SLIDES_GUIDE.md](GOOGLE_SLIDES_GUIDE.md) for detailed setup instructions and troubleshooting.**
 
 ## Versioning
 

@@ -57,13 +57,15 @@ func (s *GoogleSlidesService) LoadFromGoogleSlides(ctx context.Context, presenta
 	for i, slide := range presentation.Slides {
 		s.logger.Debug("Processing slide", "index", i, "objectId", slide.ObjectId)
 
-		// Get slide as image thumbnail URL
-		thumbnailURL := fmt.Sprintf("https://slides.googleapis.com/v1/presentations/%s/pages/%s/thumbnail?key=%s",
-			presentationID, slide.ObjectId, os.Getenv("GOOGLE_API_KEY"))
+		// Get slide thumbnail using the API
+		thumbnail, err := slidesService.Presentations.Pages.GetThumbnail(presentationID, slide.ObjectId).Do()
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to get thumbnail for slide %d: %w", i, err)
+		}
 
-		// Download slide image
+		// Download slide image from thumbnail URL
 		slidePath := filepath.Join(outputDir, fmt.Sprintf("slide_%d.png", i))
-		if err := s.downloadImage(ctx, thumbnailURL, slidePath); err != nil {
+		if err := s.downloadImage(ctx, thumbnail.ContentUrl, slidePath); err != nil {
 			return nil, nil, fmt.Errorf("failed to download slide %d: %w", i, err)
 		}
 
