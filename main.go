@@ -68,7 +68,10 @@ func main() {
 	slides := []string{}
 	slidesDir := filepath.Join(dataDir, "slides")
 	if _, err := os.Stat(slidesDir); os.IsNotExist(err) {
-		os.Mkdir(slidesDir, os.ModePerm)
+		if err := os.Mkdir(slidesDir, os.ModePerm); err != nil {
+			logger.Error("Failed to create slides directory", "error", err)
+			os.Exit(1)
+		}
 	}
 	files, err := os.ReadDir(slidesDir)
 	if err != nil {
