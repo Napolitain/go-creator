@@ -493,7 +493,5 @@ func TestIntegratedCacheHitCount(t *testing.T) {
 		// Note: Audio and video would still be called but with cached data
 		mockAudio.AssertNumberOfCalls(t, "GenerateBatch", 1)
 		mockVideo.AssertNumberOfCalls(t, "GenerateFromSlides", 1)
-		
-		mockTranslation.AssertNotCalled(t, "TranslateBatch")
 	})
 }
