@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// mockReadCloser implements io.ReadCloser for testing
+// cacheTestReadCloser implements io.ReadCloser for testing
 type cacheTestReadCloser struct {
 	*strings.Reader
 }
