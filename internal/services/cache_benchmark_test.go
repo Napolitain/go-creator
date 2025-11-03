@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"testing"
 	"time"
 )
@@ -12,7 +13,7 @@ func BenchmarkCacheService_Set(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		key := "key_" + string(rune(i))
+		key := fmt.Sprintf("key_%d", i)
 		service.Set(key, value)
 	}
 }
@@ -36,7 +37,7 @@ func BenchmarkCacheService_Get_Miss(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		key := "nonexistent_key_" + string(rune(i))
+		key := fmt.Sprintf("nonexistent_key_%d", i)
 		_, _ = service.Get(key)
 	}
 }
@@ -48,28 +49,29 @@ func BenchmarkCacheService_Delete(b *testing.B) {
 
 	// Pre-populate cache
 	for i := 0; i < b.N; i++ {
-		key := "key_" + string(rune(i))
+		key := fmt.Sprintf("key_%d", i)
 		service.Set(key, value)
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		key := "key_" + string(rune(i))
+		key := fmt.Sprintf("key_%d", i)
 		service.Delete(key)
 	}
 }
 
-// Benchmark cache with expiration
-func BenchmarkCacheService_WithExpiration(b *testing.B) {
+// Benchmark cache with short expiration to test cleanup overhead
+func BenchmarkCacheService_WithShortExpiration(b *testing.B) {
 	service := NewCacheService(1*time.Millisecond, 2*time.Millisecond)
 	value := "test value for cache benchmark"
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		key := "key_" + string(rune(i))
+		key := fmt.Sprintf("key_%d", i)
 		service.Set(key, value)
-		time.Sleep(2 * time.Millisecond) // Wait for expiration
-		_, _ = service.Get(key)          // Should miss due to expiration
+		// Note: No sleep here - we're testing the overhead of expiration logic
+		// not the actual expiration behavior
+		_, _ = service.Get(key)
 	}
 }
 
@@ -80,7 +82,7 @@ func BenchmarkCacheService_MixedOperations(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		key := "key_" + string(rune(i%100)) // Reuse keys to get some hits
+		key := fmt.Sprintf("key_%d", i%100) // Reuse keys to get some hits
 		
 		// Set
 		service.Set(key, value)

@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"strconv"
 	"testing"
 
 	"gocreator/internal/mocks"
@@ -63,7 +64,7 @@ func BenchmarkTranslationService_TranslateBatch_10Texts(b *testing.B) {
 
 	texts := make([]string, 10)
 	for i := range texts {
-		texts[i] = "Text number " + string(rune(i)) + " for batch translation benchmark"
+		texts[i] = "Text number " + strconv.Itoa(i) + " for batch translation benchmark"
 	}
 	targetLang := "Spanish"
 	ctx := context.Background()
@@ -86,7 +87,7 @@ func BenchmarkTranslationService_TranslateBatch_20Texts(b *testing.B) {
 
 	texts := make([]string, 20)
 	for i := range texts {
-		texts[i] = "Text number " + string(rune(i)) + " for batch translation benchmark"
+		texts[i] = "Text number " + strconv.Itoa(i) + " for batch translation benchmark"
 	}
 	targetLang := "Spanish"
 	ctx := context.Background()

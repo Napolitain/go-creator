@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -45,7 +46,7 @@ func BenchmarkTextService_Save(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		testPath := "/test/texts_" + string(rune(i)) + ".txt"
+		testPath := fmt.Sprintf("/test/texts_%d.txt", i)
 		_ = service.Save(ctx, testPath, texts)
 	}
 }
@@ -108,7 +109,7 @@ func BenchmarkTextService_SaveHashes(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		hashFile := "/test/hashes_" + string(rune(i))
+		hashFile := fmt.Sprintf("/test/hashes_%d", i)
 		_ = service.SaveHashes(ctx, hashFile, hashes)
 	}
 }

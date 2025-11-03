@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -28,7 +29,7 @@ func BenchmarkAudioService_Generate_NoCache(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		outputPath := "/output/audio_" + string(rune(i)) + ".mp3"
+		outputPath := "/output/audio_" + strconv.Itoa(i) + ".mp3"
 		_ = service.Generate(ctx, text, outputPath)
 	}
 }
@@ -81,7 +82,7 @@ func BenchmarkAudioService_GenerateBatch_NoCache(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		outputDir := "/output/batch_" + string(rune(i))
+		outputDir := "/output/batch_" + strconv.Itoa(i)
 		_, _ = service.GenerateBatch(ctx, texts, outputDir)
 	}
 }
