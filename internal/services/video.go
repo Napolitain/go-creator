@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -40,9 +41,9 @@ func (s *VideoService) GenerateFromSlides(ctx context.Context, slides, audioPath
 	}
 
 	// Get dimensions from first slide
-	width, height, err := s.getImageDimensions(slides[0])
+	width, height, err := s.getMediaDimensions(slides[0])
 	if err != nil {
-		return fmt.Errorf("failed to get image dimensions: %w", err)
+		return fmt.Errorf("failed to get media dimensions: %w", err)
 	}
 
 	// Ensure even dimensions for video encoding
@@ -111,7 +112,7 @@ func (s *VideoService) generateSingleVideo(slidePath, audioPath, outputPath stri
 	}
 
 	// Get slide/video dimensions
-	iw, ih, err := s.getImageDimensions(slidePath)
+	iw, ih, err := s.getMediaDimensions(slidePath)
 	if err != nil {
 		return err
 	}
@@ -127,6 +128,17 @@ func (s *VideoService) generateSingleVideo(slidePath, audioPath, outputPath stri
 		videoDuration, err := s.getVideoDuration(slidePath)
 		if err != nil {
 			return fmt.Errorf("failed to get video duration: %w", err)
+		}
+
+		// Get audio duration and warn if significantly shorter than video
+		audioDuration, err := s.getVideoDuration(audioPath)
+		if err != nil {
+			s.logger.Warn("Failed to get audio duration, proceeding anyway", "path", audioPath, "error", err)
+		} else if audioDuration < videoDuration*0.8 { // Audio is less than 80% of video duration
+			s.logger.Warn("Audio is significantly shorter than video, remainder will be silent",
+				"video_duration", videoDuration,
+				"audio_duration", audioDuration,
+				"video_path", slidePath)
 		}
 
 		if targetWidth != iw || targetHeight != ih {
@@ -225,8 +237,8 @@ func (s *VideoService) concatenateVideos(videoFiles []string, outputPath string)
 	return nil
 }
 
-func (s *VideoService) getImageDimensions(imagePath string) (int, int, error) {
-	cmd := exec.Command("ffmpeg", "-i", imagePath, "-vf", "scale", "-vframes", "1", "-f", "null", "-")
+func (s *VideoService) getMediaDimensions(mediaPath string) (int, int, error) {
+	cmd := exec.Command("ffmpeg", "-i", mediaPath, "-vf", "scale", "-vframes", "1", "-f", "null", "-")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return 0, 0, fmt.Errorf("ffmpeg dimension check failed: %w", err)
@@ -255,8 +267,27 @@ func (s *VideoService) isVideoFile(filePath string) (bool, error) {
 	}
 
 	outputStr := string(output)
-	// Check if it has a duration field (videos have duration, single images don't)
-	return strings.Contains(outputStr, "duration="), nil
+	
+	var hasVideoCodec bool
+	var duration float64
+
+	lines := strings.Split(outputStr, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "codec_type=video" {
+			hasVideoCodec = true
+		}
+		if strings.HasPrefix(line, "duration=") {
+			val := strings.TrimPrefix(line, "duration=")
+			val = strings.TrimSpace(val)
+			if d, err := strconv.ParseFloat(val, 64); err == nil {
+				duration = d
+			}
+		}
+	}
+
+	// A video file must have video codec type and a positive duration
+	return hasVideoCodec && duration > 0, nil
 }
 
 // getVideoDuration gets the duration of a video file in seconds
