@@ -114,15 +114,15 @@ func BenchmarkTextService_SaveHashes(b *testing.B) {
 	}
 }
 
-// Benchmark hash of loaded text (file content hashing workflow)
+// Benchmark hash of loaded text (single text hashing workflow)
 func BenchmarkTextService_LoadAndHash(b *testing.B) {
 	fs := afero.NewMemMapFs()
 	logger := &mockLogger{}
 	service := NewTextService(fs, logger)
 
-	// Create test file
+	// Create test file with a single text entry
 	testPath := "/test/file.txt"
-	testContent := "This is test content for file hashing benchmark. It contains multiple lines.\nSecond line of content.\nThird line of content."
+	testContent := "This is test content for file hashing benchmark"
 	_ = fs.MkdirAll("/test", 0755)
 	_ = afero.WriteFile(fs, testPath, []byte(testContent), 0644)
 
@@ -130,7 +130,7 @@ func BenchmarkTextService_LoadAndHash(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		// Load and hash workflow
+		// Load and hash workflow - tests the common pattern of loading then hashing
 		texts, _ := service.Load(ctx, testPath)
 		if len(texts) > 0 {
 			_ = service.Hash(texts[0])
