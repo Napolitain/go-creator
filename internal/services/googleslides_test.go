@@ -34,7 +34,7 @@ func TestGoogleSlidesService_LoadFromGoogleSlides_MissingCredentials(t *testing.
 	assert.Nil(t, slides)
 	assert.Nil(t, notes)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "GOOGLE_APPLICATION_CREDENTIALS")
+	assert.Contains(t, err.Error(), "no Google credentials found")
 }
 
 func TestGoogleSlidesService_NewService(t *testing.T) {

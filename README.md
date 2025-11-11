@@ -65,8 +65,16 @@ gocreator create --lang en --langs-out en,fr,es
 
 ### Using Google Slides
 
-To use Google Slides API, you need to:
+GoCreator supports **two authentication methods** for Google Slides API:
 
+**Option A: OAuth 2.0 (Personal Use)**
+1. **Set up Google Cloud Project** and enable Google Slides API
+2. **Create OAuth 2.0 credentials** for desktop app
+3. **Set environment variable**: `export GOOGLE_OAUTH_CREDENTIALS="/path/to/oauth-credentials.json"`
+4. **Run with Google Slides**: `gocreator create --google-slides YOUR_PRESENTATION_ID --lang en --langs-out en,fr,es`
+5. **Authorize on first run**: Follow the prompts to authorize with your Google account
+
+**Option B: Service Account (CI/CD)**
 1. **Set up Google Cloud Project** and enable Google Slides API
 2. **Create service account credentials** and download JSON file
 3. **Share your presentation** with the service account email
@@ -83,6 +91,7 @@ https://docs.google.com/presentation/d/[PRESENTATION_ID]/edit
 - Speaker notes from each slide are used as the narration text
 - Videos are generated with audio in multiple languages
 - All content is cached for efficient re-generation
+- OAuth 2.0 provides automatic token refresh for seamless access
 
 📖 **See [GOOGLE_SLIDES_GUIDE.md](GOOGLE_SLIDES_GUIDE.md) for detailed setup instructions and troubleshooting.**
 

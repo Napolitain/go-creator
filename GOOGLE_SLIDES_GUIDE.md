@@ -12,24 +12,100 @@ GoCreator can fetch slides and speaker notes directly from Google Slides present
 - **Speaker Notes as Narration**: Speaker notes from each slide become the narration text
 - **Live Updates**: Re-run to fetch the latest version of your presentation
 - **Caching**: Downloaded slides and generated videos are cached for efficiency
+- **Multiple Authentication Methods**: Support for both OAuth 2.0 (user authorization) and service account credentials
+
+## Authentication Methods
+
+GoCreator supports two authentication methods for Google Slides API:
+
+### 🔐 OAuth 2.0 (Recommended for Personal Use)
+- **Best for**: Individual users accessing their own presentations
+- **Benefits**: Simple setup, uses your Google account, automatic token refresh
+- **Access**: Only presentations owned by or shared with your Google account
+- **Setup**: See [Option A: OAuth 2.0 Setup](#option-a-oauth-20-setup-recommended-for-personal-use) below
+
+### 🔑 Service Account (Recommended for CI/CD)
+- **Best for**: Automated workflows, servers, CI/CD pipelines
+- **Benefits**: No user interaction needed, works headless
+- **Access**: Only presentations explicitly shared with the service account email
+- **Setup**: See [Option B: Service Account Setup](#option-b-service-account-setup-recommended-for-cicd) below
 
 ## Setup Instructions
 
-### 1. Create a Google Cloud Project
+### Common Setup Steps (Required for Both Methods)
+
+#### 1. Create a Google Cloud Project
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Click "Create Project" or select an existing project
 3. Note your Project ID
 
-### 2. Enable Google Slides API
+#### 2. Enable Google Slides API
 
 1. In the Google Cloud Console, navigate to "APIs & Services" > "Library"
 2. Search for "Google Slides API"
 3. Click on it and click "Enable"
+4. Also enable "Google Drive API" (optional but recommended for file access)
 
-### 3. Create Service Account Credentials
+---
 
-For automated access (recommended for CI/CD):
+### Option A: OAuth 2.0 Setup (Recommended for Personal Use)
+
+#### 1. Create OAuth 2.0 Credentials
+
+1. Navigate to "APIs & Services" > "Credentials"
+2. Click "Create Credentials" > "OAuth client ID"
+3. If prompted, configure the OAuth consent screen:
+   - Choose "External" user type
+   - Fill in app name (e.g., "GoCreator")
+   - Add your email as developer contact
+   - Add scopes: `https://www.googleapis.com/auth/presentations` and `https://www.googleapis.com/auth/drive.file`
+   - Add your email as a test user
+   - Save and continue
+4. Back at "Create OAuth client ID":
+   - Choose "Desktop app" as application type
+   - Enter a name (e.g., "GoCreator Desktop")
+   - Click "Create"
+5. Download the credentials JSON file
+6. Save it as `~/.config/gocreator/oauth-credentials.json`
+
+#### 2. Set Environment Variable
+
+Set the `GOOGLE_OAUTH_CREDENTIALS` environment variable:
+
+**Linux/macOS:**
+```bash
+export GOOGLE_OAUTH_CREDENTIALS="$HOME/.config/gocreator/oauth-credentials.json"
+```
+
+**Windows (PowerShell):**
+```powershell
+$env:GOOGLE_OAUTH_CREDENTIALS="C:\Users\YourName\.config\gocreator\oauth-credentials.json"
+```
+
+**Persistent setup (add to ~/.bashrc or ~/.zshrc):**
+```bash
+echo 'export GOOGLE_OAUTH_CREDENTIALS="$HOME/.config/gocreator/oauth-credentials.json"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+#### 3. First Run - Authorization
+
+On your first run, GoCreator will:
+1. Display an authorization URL
+2. Ask you to visit the URL in your browser
+3. Prompt you to sign in with your Google account
+4. Ask you to authorize the application
+5. Provide an authorization code
+6. Request you to paste the code back into the terminal
+
+The access token will be automatically saved and refreshed for future runs.
+
+---
+
+### Option B: Service Account Setup (Recommended for CI/CD)
+
+#### 1. Create Service Account Credentials
 
 1. Navigate to "APIs & Services" > "Credentials"
 2. Click "Create Credentials" > "Service Account"
@@ -42,9 +118,9 @@ For automated access (recommended for CI/CD):
 9. Click "Add Key" > "Create new key"
 10. Choose "JSON" format
 11. Download the credentials file
-12. Save it securely (e.g., `~/.config/gocreator/credentials.json`)
+12. Save it securely (e.g., `~/.config/gocreator/service-account-credentials.json`)
 
-### 4. Share Your Google Slides Presentation
+#### 2. Share Your Google Slides Presentation
 
 **Important**: You must share your Google Slides presentation with the service account email address.
 
@@ -54,25 +130,42 @@ For automated access (recommended for CI/CD):
 4. Give it "Viewer" permission
 5. Click "Send"
 
-### 5. Set Environment Variable
+#### 3. Set Environment Variable
 
-Set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable to point to your credentials file:
+Set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable:
 
 **Linux/macOS:**
 ```bash
-export GOOGLE_APPLICATION_CREDENTIALS="$HOME/.config/gocreator/credentials.json"
+export GOOGLE_APPLICATION_CREDENTIALS="$HOME/.config/gocreator/service-account-credentials.json"
 ```
 
 **Windows (PowerShell):**
 ```powershell
-$env:GOOGLE_APPLICATION_CREDENTIALS="C:\Users\YourName\.config\gocreator\credentials.json"
+$env:GOOGLE_APPLICATION_CREDENTIALS="C:\Users\YourName\.config\gocreator\service-account-credentials.json"
 ```
 
 **Persistent setup (add to ~/.bashrc or ~/.zshrc):**
 ```bash
-echo 'export GOOGLE_APPLICATION_CREDENTIALS="$HOME/.config/gocreator/credentials.json"' >> ~/.bashrc
+echo 'export GOOGLE_APPLICATION_CREDENTIALS="$HOME/.config/gocreator/service-account-credentials.json"' >> ~/.bashrc
 source ~/.bashrc
 ```
+
+## Choosing the Right Authentication Method
+
+| Feature | OAuth 2.0 | Service Account |
+|---------|-----------|-----------------|
+| **Setup Complexity** | Simple | Moderate |
+| **User Interaction** | Required on first run | None needed |
+| **Access Scope** | All presentations you own/have access to | Only presentations explicitly shared |
+| **Token Management** | Automatic refresh | N/A |
+| **Best For** | Personal development, local testing | CI/CD, automated workflows, servers |
+| **Headless Support** | ❌ (requires browser) | ✅ |
+| **Security** | User's Google account | Service account with limited access |
+
+### Quick Recommendation
+
+- **Use OAuth 2.0 if**: You're developing locally and accessing your own presentations
+- **Use Service Account if**: You're running in CI/CD, on a server, or need headless operation
 
 ## Usage
 
@@ -88,13 +181,20 @@ https://docs.google.com/presentation/d/1ABC-xyz123_EXAMPLE-ID/edit
 
 ### Run GoCreator
 
+**With OAuth 2.0:**
 ```bash
-# Single language
-gocreator create --google-slides 1ABC-xyz123_EXAMPLE-ID --lang en
-
-# Multiple languages
+export GOOGLE_OAUTH_CREDENTIALS="$HOME/.config/gocreator/oauth-credentials.json"
 gocreator create --google-slides 1ABC-xyz123_EXAMPLE-ID --lang en --langs-out en,fr,es,de
 ```
+
+**With Service Account:**
+
+```bash
+export GOOGLE_APPLICATION_CREDENTIALS="$HOME/.config/gocreator/service-account-credentials.json"
+gocreator create --google-slides 1ABC-xyz123_EXAMPLE-ID --lang en --langs-out en,fr,es,de
+```
+
+**Note**: GoCreator automatically detects which authentication method to use based on which environment variable is set. If both are set, OAuth 2.0 takes precedence.
 
 ### What Happens
 
@@ -143,33 +243,71 @@ ls data/out/
 
 ## Troubleshooting
 
-### Error: "GOOGLE_APPLICATION_CREDENTIALS environment variable not set"
+### Error: "no Google credentials found"
 
-**Solution**: Set the environment variable as described in step 5 above.
+**Solution**: Set one of the environment variables:
+- For OAuth 2.0: `export GOOGLE_OAUTH_CREDENTIALS="path/to/oauth-credentials.json"`
+- For Service Account: `export GOOGLE_APPLICATION_CREDENTIALS="path/to/service-account-credentials.json"`
 
 ### Error: "failed to get presentation: googleapi: Error 404"
 
 **Possible causes**:
 1. Incorrect presentation ID
-2. Presentation not shared with service account
-3. Presentation deleted
+2. **OAuth 2.0**: Presentation not owned by or shared with your Google account
+3. **Service Account**: Presentation not shared with service account email
+4. Presentation deleted
 
 **Solution**: 
 - Verify the presentation ID
-- Check that you shared the presentation with the service account email
+- **OAuth 2.0**: Ensure you have access to the presentation with your Google account
+- **Service Account**: Check that you shared the presentation with the service account email
 - Ensure the presentation exists
 
-### Error: "failed to create slides service: ... credentials"
+### Error: "failed to get presentation: googleapi: Error 403" (Permission Denied)
 
 **Possible causes**:
-1. Credentials file not found
-2. Invalid credentials file
-3. Wrong file path in environment variable
+1. **OAuth 2.0**: User hasn't authorized the application yet
+2. **Service Account**: Service account doesn't have permission to access the presentation
+3. API not enabled
 
 **Solution**:
-- Check that the credentials file exists at the specified path
-- Verify the credentials file is valid JSON
-- Check the environment variable is set correctly
+- **OAuth 2.0**: Run GoCreator and complete the authorization flow
+- **Service Account**: Share the presentation with the service account email
+- Ensure Google Slides API is enabled in your Google Cloud project
+
+### Error: "failed to parse OAuth credentials" or "invalid credentials file"
+
+**Possible causes**:
+1. Wrong credentials file format
+2. Using OAuth credentials file for service account (or vice versa)
+3. Corrupted JSON file
+
+**Solution**:
+- Ensure you're using the correct environment variable for your credential type:
+  - `GOOGLE_OAUTH_CREDENTIALS` for OAuth 2.0 desktop app credentials
+  - `GOOGLE_APPLICATION_CREDENTIALS` for service account credentials
+- Re-download the credentials file from Google Cloud Console
+- Verify the JSON file is not corrupted
+
+### OAuth 2.0 Authorization Issues
+
+**Problem**: Browser doesn't open or authorization code is not accepted
+
+**Solution**:
+1. Manually copy and paste the authorization URL into your browser
+2. Complete the authorization in the browser
+3. Copy the authorization code from the browser
+4. Paste it into the GoCreator terminal prompt
+5. If the code is rejected, ensure you're copying the entire code without extra spaces
+
+### Token Refresh Issues
+
+**Problem**: "token refresh failed" or authentication errors after initial setup
+
+**Solution**:
+1. Delete the cached token: `rm ~/.config/gocreator/.gocreator-token.json`
+2. Run GoCreator again to re-authorize
+3. If issues persist, verify your OAuth credentials are still valid in Google Cloud Console
 
 ### Error: "failed to get thumbnail"
 
