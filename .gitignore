@@ -35,6 +35,11 @@ examples/*/data/cache/
 perftest
 gocreator
 
+# Compiled binaries in cmd directories
+cmd/perftest/perftest
+cmd/cache-perf-test/cache-perf-test
+cmd/gocreator/gocreator
+
 # OAuth tokens and credentials
 .gocreator-token.json
 credentials.json
