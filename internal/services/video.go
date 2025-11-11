@@ -3,6 +3,8 @@ package services
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os/exec"
 	"path/filepath"
@@ -111,6 +113,16 @@ func (s *VideoService) GenerateFromSlides(ctx context.Context, slides, audioPath
 }
 
 func (s *VideoService) generateSingleVideo(slidePath, audioPath, outputPath string, targetWidth, targetHeight int) error {
+	// Check segment cache first
+	cached, err := s.checkSegmentCache(slidePath, audioPath, outputPath, targetWidth, targetHeight)
+	if err != nil {
+		s.logger.Warn("Failed to check segment cache", "error", err)
+	}
+	if cached {
+		s.logger.Info("Using cached video segment", "path", outputPath)
+		return nil
+	}
+	
 	// Check if the slide is actually a video
 	isVideo, err := s.isVideoFile(slidePath)
 	if err != nil {
@@ -212,17 +224,45 @@ func (s *VideoService) generateSingleVideo(slidePath, audioPath, outputPath stri
 		return fmt.Errorf("ffmpeg error: %w, stderr: %s", err, stderr.String())
 	}
 
+	// Save segment hash for future cache hits
+	if err := s.saveSegmentHash(slidePath, audioPath, outputPath, targetWidth, targetHeight); err != nil {
+		s.logger.Warn("Failed to save segment hash", "error", err)
+		// Don't fail the operation if hash saving fails
+	}
+
 	return nil
 }
 
 func (s *VideoService) concatenateVideos(videoFiles []string, outputPath string) error {
+	// Check final video cache first
+	cached, err := s.checkFinalVideoCache(videoFiles, outputPath)
+	if err != nil {
+		s.logger.Warn("Failed to check final video cache", "error", err)
+	}
+	if cached {
+		s.logger.Info("Using cached final video", "path", outputPath)
+		return nil
+	}
+	
 	// If transitions are disabled or only one video, use simple concatenation
 	if !s.transition.IsEnabled() || len(videoFiles) == 1 {
-		return s.concatenateVideosSimple(videoFiles, outputPath)
+		if err := s.concatenateVideosSimple(videoFiles, outputPath); err != nil {
+			return err
+		}
+	} else {
+		// Use transitions with xfade filter
+		if err := s.concatenateVideosWithTransitions(videoFiles, outputPath); err != nil {
+			return err
+		}
 	}
-
-	// Use transitions with xfade filter
-	return s.concatenateVideosWithTransitions(videoFiles, outputPath)
+	
+	// Save final video hash for future cache hits
+	if err := s.saveFinalVideoHash(videoFiles, outputPath); err != nil {
+		s.logger.Warn("Failed to save final video hash", "error", err)
+		// Don't fail the operation if hash saving fails
+	}
+	
+	return nil
 }
 
 // concatenateVideosSimple concatenates videos without transitions
@@ -412,4 +452,140 @@ func (s *VideoService) getVideoDuration(videoPath string) (float64, error) {
 	}
 
 	return duration, nil
+}
+
+// computeSegmentHash computes a cache key for a video segment
+func (s *VideoService) computeSegmentHash(slidePath, audioPath string, width, height int) (string, error) {
+	// Read slide file
+	slideData, err := afero.ReadFile(s.fs, slidePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read slide file: %w", err)
+	}
+	
+	// Read audio file
+	audioData, err := afero.ReadFile(s.fs, audioPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read audio file: %w", err)
+	}
+	
+	// Compute hash of slide + audio + dimensions
+	hasher := sha256.New()
+	hasher.Write(slideData)
+	hasher.Write(audioData)
+	hasher.Write([]byte(fmt.Sprintf("%dx%d", width, height)))
+	
+	return hex.EncodeToString(hasher.Sum(nil)), nil
+}
+
+// checkSegmentCache checks if a cached video segment exists and is valid
+func (s *VideoService) checkSegmentCache(slidePath, audioPath, outputPath string, width, height int) (bool, error) {
+	// Check if output file exists
+	exists, err := afero.Exists(s.fs, outputPath)
+	if err != nil {
+		return false, err
+	}
+	if !exists {
+		return false, nil
+	}
+	
+	// Check if hash file exists
+	hashPath := outputPath + ".hash"
+	hashExists, err := afero.Exists(s.fs, hashPath)
+	if err != nil {
+		return false, err
+	}
+	if !hashExists {
+		return false, nil
+	}
+	
+	// Read stored hash
+	storedHash, err := afero.ReadFile(s.fs, hashPath)
+	if err != nil {
+		return false, err
+	}
+	
+	// Compute current hash
+	currentHash, err := s.computeSegmentHash(slidePath, audioPath, width, height)
+	if err != nil {
+		return false, err
+	}
+	
+	return string(storedHash) == currentHash, nil
+}
+
+// saveSegmentHash saves the hash for a video segment
+func (s *VideoService) saveSegmentHash(slidePath, audioPath, outputPath string, width, height int) error {
+	hash, err := s.computeSegmentHash(slidePath, audioPath, width, height)
+	if err != nil {
+		return err
+	}
+	
+	hashPath := outputPath + ".hash"
+	return afero.WriteFile(s.fs, hashPath, []byte(hash), 0644)
+}
+
+// computeFinalVideoHash computes a cache key for the final concatenated video
+func (s *VideoService) computeFinalVideoHash(videoFiles []string) (string, error) {
+	hasher := sha256.New()
+	
+	// Hash each video segment file
+	for _, videoFile := range videoFiles {
+		data, err := afero.ReadFile(s.fs, videoFile)
+		if err != nil {
+			return "", fmt.Errorf("failed to read video file %s: %w", videoFile, err)
+		}
+		hasher.Write(data)
+	}
+	
+	// Include transition configuration in hash
+	hasher.Write([]byte(fmt.Sprintf("%s:%.2f", s.transition.Type, s.transition.Duration)))
+	
+	return hex.EncodeToString(hasher.Sum(nil)), nil
+}
+
+// checkFinalVideoCache checks if a cached final video exists and is valid
+func (s *VideoService) checkFinalVideoCache(videoFiles []string, outputPath string) (bool, error) {
+	// Check if output file exists
+	exists, err := afero.Exists(s.fs, outputPath)
+	if err != nil {
+		return false, err
+	}
+	if !exists {
+		return false, nil
+	}
+	
+	// Check if hash file exists
+	hashPath := outputPath + ".hash"
+	hashExists, err := afero.Exists(s.fs, hashPath)
+	if err != nil {
+		return false, err
+	}
+	if !hashExists {
+		return false, nil
+	}
+	
+	// Read stored hash
+	storedHash, err := afero.ReadFile(s.fs, hashPath)
+	if err != nil {
+		return false, err
+	}
+	
+	// Compute current hash
+	currentHash, err := s.computeFinalVideoHash(videoFiles)
+	if err != nil {
+		return false, err
+	}
+	
+	return string(storedHash) == currentHash, nil
+}
+
+// saveFinalVideoHash saves the hash for the final video
+func (s *VideoService) saveFinalVideoHash(videoFiles []string, outputPath string) error {
+	hash, err := s.computeFinalVideoHash(videoFiles)
+	if err != nil {
+		return err
+	}
+	
+	hashPath := outputPath + ".hash"
+	return afero.WriteFile(s.fs, hashPath, []byte(hash), 0644)
 }
