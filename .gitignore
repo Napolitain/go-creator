@@ -34,6 +34,7 @@ examples/*/data/segments/
 examples/*/data/cache/
 perftest
 gocreator
+cache-perf-test
 
 # OAuth tokens and credentials
 .gocreator-token.json
