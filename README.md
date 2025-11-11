@@ -179,6 +179,29 @@ go test -bench=. ./internal/services/ -run=^$
 go test -bench=. -benchmem ./internal/services/ -run=^$
 ```
 
+### Fuzz Testing
+
+GoCreator includes fuzz tests that use Go's built-in fuzzing support (Go 1.18+) to test functions with randomly generated inputs:
+
+```bash
+# Run a specific fuzz test for 30 seconds
+go test -fuzz=FuzzTextService_Hash -fuzztime=30s ./internal/services/
+
+# Run all fuzz tests briefly (10 seconds each)
+go test -fuzz=FuzzTextService_Hash -fuzztime=10s ./internal/services/
+go test -fuzz=FuzzTextService_LoadAndSave -fuzztime=10s ./internal/services/
+go test -fuzz=FuzzTextService_SaveHashes -fuzztime=10s ./internal/services/
+go test -fuzz=FuzzTranslationService_getCacheKey -fuzztime=10s ./internal/services/
+go test -fuzz=FuzzTranslationService_MemoryCache -fuzztime=10s ./internal/services/
+go test -fuzz=FuzzTranslationService_DiskCache -fuzztime=10s ./internal/services/
+
+# Re-run a failing fuzz test case
+go test -run=FuzzTestName/testdata_file_name ./internal/services/
+```
+
+Fuzz tests help discover edge cases and ensure robustness with unexpected inputs. See [FUZZTESTING.md](FUZZTESTING.md) for more details.
+
+
 ### Performance Testing
 
 GoCreator includes a comprehensive performance testing tool that measures cache performance, API latency, and provides end-to-end metrics:
@@ -211,6 +234,7 @@ See [cmd/perftest/README.md](cmd/perftest/README.md) for detailed documentation.
 - **CacheService**: Set, Get, Delete, Clear, Expiration
 - **VideoCreator**: Full workflow orchestration with mocked services
 - **Benchmarks**: Performance tests for all core operations with cache scenarios
+- **Fuzz Tests**: Randomized testing for TextService and TranslationService to discover edge cases
 
 All external dependencies (filesystem, OpenAI API) are mocked for isolated unit testing.
 
