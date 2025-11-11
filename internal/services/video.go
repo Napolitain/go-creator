@@ -482,7 +482,7 @@ func (s *VideoService) computeSegmentHash(slidePath, audioPath string, width, he
 	hasher := sha256.New()
 	hasher.Write(slideData)
 	hasher.Write(audioData)
-	hasher.Write([]byte(fmt.Sprintf("%dx%d", width, height)))
+	fmt.Fprintf(hasher, "%dx%d", width, height)
 	
 	return hex.EncodeToString(hasher.Sum(nil)), nil
 }
@@ -548,7 +548,7 @@ func (s *VideoService) computeFinalVideoHash(videoFiles []string) (string, error
 	}
 	
 	// Include transition configuration in hash
-	hasher.Write([]byte(fmt.Sprintf("%s:%.2f", s.transition.Type, s.transition.Duration)))
+	fmt.Fprintf(hasher, "%s:%.2f", s.transition.Type, s.transition.Duration)
 	
 	return hex.EncodeToString(hasher.Sum(nil)), nil
 }

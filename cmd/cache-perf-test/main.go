@@ -192,11 +192,15 @@ func runScenario(scenario Scenario) []PerformanceMetrics {
 		
 		if run == 1 {
 			// Clean up before first run
-			os.RemoveAll(baseDir)
+			if err := os.RemoveAll(baseDir); err != nil {
+				log.Printf("Warning: failed to remove base dir: %v", err)
+			}
 		}
 		
 		// Create directories
-		os.MkdirAll(slidesDir, 0755)
+		if err := os.MkdirAll(slidesDir, 0755); err != nil {
+			log.Fatalf("Failed to create slides directory: %v", err)
+		}
 		
 		// Generate mock slides and texts
 		setupMockData(fs, slidesDir, textsPath, scenario.NumSlides)
@@ -276,7 +280,9 @@ func runScenario(scenario Scenario) []PerformanceMetrics {
 					logger.Info("Loading cached translation")
 				} else {
 					texts, _ = translationService.TranslateBatch(ctx, inputTexts, lang)
-					textService.Save(ctx, textsPath, texts)
+					if err := textService.Save(ctx, textsPath, texts); err != nil {
+						log.Printf("Warning: failed to save texts: %v", err)
+					}
 				}
 			}
 			
@@ -286,7 +292,9 @@ func runScenario(scenario Scenario) []PerformanceMetrics {
 			// Generate video
 			outputDir := filepath.Join(dataDir, "out")
 			outputPath := filepath.Join(outputDir, fmt.Sprintf("output-%s.mp4", lang))
-			videoService.GenerateFromSlides(ctx, slides, audioPaths, outputPath)
+			if err := videoService.GenerateFromSlides(ctx, slides, audioPaths, outputPath); err != nil {
+				log.Printf("Warning: failed to generate video: %v", err)
+			}
 		}
 		
 		duration := time.Since(startTime)
@@ -342,7 +350,9 @@ func setupMockData(fs afero.Fs, slidesDir, textsPath string, numSlides int) {
 	for i := 0; i < numSlides; i++ {
 		slidePath := filepath.Join(slidesDir, fmt.Sprintf("slide_%d.png", i))
 		mockImageData := strings.Repeat(fmt.Sprintf("image-data-%d-", i), 100)
-		afero.WriteFile(fs, slidePath, []byte(mockImageData), 0644)
+		if err := afero.WriteFile(fs, slidePath, []byte(mockImageData), 0644); err != nil {
+			log.Printf("Warning: failed to write slide: %v", err)
+		}
 	}
 	
 	// Create mock texts
@@ -351,14 +361,27 @@ func setupMockData(fs afero.Fs, slidesDir, textsPath string, numSlides int) {
 		texts = append(texts, fmt.Sprintf("This is the narration for slide %d. It contains important information.", i))
 	}
 	
-	file, _ := fs.Create(textsPath)
+	file, err := fs.Create(textsPath)
+	if err != nil {
+		log.Printf("Warning: failed to create texts file: %v", err)
+		return
+	}
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.Printf("Warning: failed to close texts file: %v", err)
+		}
+	}()
+	
 	for i, text := range texts {
-		file.WriteString(text)
+		if _, err := file.WriteString(text); err != nil {
+			log.Printf("Warning: failed to write text: %v", err)
+		}
 		if i < len(texts)-1 {
-			file.WriteString("\n-\n")
+			if _, err := file.WriteString("\n-\n"); err != nil {
+				log.Printf("Warning: failed to write delimiter: %v", err)
+			}
 		}
 	}
-	file.Close()
 }
 
 func generateLanguages(count int) []string {
