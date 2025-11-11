@@ -9,22 +9,26 @@ import (
 	"path/filepath"
 	"time"
 
+	"gocreator/internal/auth"
 	"gocreator/internal/interfaces"
 
 	"github.com/spf13/afero"
-	"google.golang.org/api/option"
 	"google.golang.org/api/slides/v1"
 )
 
 const (
 	// defaultHTTPTimeout is the timeout for HTTP requests when downloading slide images
 	defaultHTTPTimeout = 30 * time.Second
+
+	// OAuth 2.0 token file for storing and refreshing access tokens
+	tokenFile = ".gocreator-token.json"
 )
 
 // GoogleSlidesService handles fetching slides and notes from Google Slides
 type GoogleSlidesService struct {
-	fs     afero.Fs
-	logger interfaces.Logger
+	fs                 afero.Fs
+	logger             interfaces.Logger
+	credentialsProvider auth.CredentialsProvider
 }
 
 // NewGoogleSlidesService creates a new Google Slides service
@@ -32,6 +36,15 @@ func NewGoogleSlidesService(fs afero.Fs, logger interfaces.Logger) *GoogleSlides
 	return &GoogleSlidesService{
 		fs:     fs,
 		logger: logger,
+	}
+}
+
+// NewGoogleSlidesServiceWithAuth creates a new Google Slides service with authentication provider
+func NewGoogleSlidesServiceWithAuth(fs afero.Fs, logger interfaces.Logger, credentialsProvider auth.CredentialsProvider) *GoogleSlidesService {
+	return &GoogleSlidesService{
+		fs:                  fs,
+		logger:              logger,
+		credentialsProvider: credentialsProvider,
 	}
 }
 
@@ -89,19 +102,72 @@ func (s *GoogleSlidesService) LoadFromGoogleSlides(ctx context.Context, presenta
 
 // createSlidesService creates a Google Slides API service with credentials
 func (s *GoogleSlidesService) createSlidesService(ctx context.Context) (*slides.Service, error) {
-	// Check for credentials file
+	// If a credentials provider is injected, use it
+	if s.credentialsProvider != nil {
+		clientOption, err := s.credentialsProvider.GetClientOption(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get client option from credentials provider: %w", err)
+		}
+		service, err := slides.NewService(ctx, clientOption)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create slides service: %w", err)
+		}
+		return service, nil
+	}
+
+	// Fallback to environment variable-based auth for backward compatibility
+	return s.createSlidesServiceFromEnv(ctx)
+}
+
+// createSlidesServiceFromEnv creates a Google Slides API service using environment variables
+// This method is kept for backward compatibility
+func (s *GoogleSlidesService) createSlidesServiceFromEnv(ctx context.Context) (*slides.Service, error) {
+	// Try OAuth 2.0 credentials first
+	oauthCredPath := os.Getenv("GOOGLE_OAUTH_CREDENTIALS")
+	if oauthCredPath != "" {
+		s.logger.Debug("Using OAuth 2.0 credentials from environment", "path", oauthCredPath)
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get user home directory: %w", err)
+		}
+		tokenPath := filepath.Join(homeDir, ".config", "gocreator", tokenFile)
+
+		tokenStore := auth.NewFileTokenStore(tokenPath)
+		authorizer := auth.NewConsoleAuthorizer()
+		scopes := []string{
+			"https://www.googleapis.com/auth/presentations",
+			"https://www.googleapis.com/auth/drive.file",
+		}
+		provider := auth.NewOAuth2Provider(oauthCredPath, tokenStore, authorizer, s.logger, scopes)
+
+		clientOption, err := provider.GetClientOption(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get OAuth client option: %w", err)
+		}
+		service, err := slides.NewService(ctx, clientOption)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create slides service with OAuth: %w", err)
+		}
+		return service, nil
+	}
+
+	// Fall back to service account credentials
 	credentialsPath := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")
-	if credentialsPath == "" {
-		return nil, fmt.Errorf("GOOGLE_APPLICATION_CREDENTIALS environment variable not set. Please set it to the path of your service account credentials file. See GOOGLE_SLIDES_GUIDE.md for setup instructions")
+	if credentialsPath != "" {
+		s.logger.Debug("Using service account credentials from environment", "path", credentialsPath)
+		provider := auth.NewServiceAccountProvider(credentialsPath)
+		clientOption, err := provider.GetClientOption(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get service account client option: %w", err)
+		}
+		service, err := slides.NewService(ctx, clientOption)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create slides service with service account: %w", err)
+		}
+		return service, nil
 	}
 
-	// Create service with credentials
-	service, err := slides.NewService(ctx, option.WithCredentialsFile(credentialsPath))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create slides service: %w", err)
-	}
-
-	return service, nil
+	return nil, fmt.Errorf("no Google credentials found. Set either GOOGLE_OAUTH_CREDENTIALS (for OAuth 2.0) or GOOGLE_APPLICATION_CREDENTIALS (for service account). See GOOGLE_SLIDES_GUIDE.md for setup instructions")
 }
 
 // downloadImage downloads an image from a URL and saves it to the filesystem
