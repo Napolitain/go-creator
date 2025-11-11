@@ -135,7 +135,7 @@ func TestTranslationService_TranslateBatch_WithError(t *testing.T) {
 	service := NewTranslationService(mockClient, logger)
 
 	inputTexts := []string{"Hello", "Goodbye"}
-	
+
 	// First translation succeeds, second fails
 	mockClient.On("ChatCompletion", mock.Anything, mock.AnythingOfType("[]openai.ChatCompletionMessageParamUnion")).
 		Return("Hola", nil).Once()
@@ -150,17 +150,17 @@ func TestTranslationService_TranslateBatch_WithError(t *testing.T) {
 }
 
 func TestNewTranslationServiceWithCache(t *testing.T) {
-mockClient := new(mocks.MockOpenAIClient)
-logger := &mockLogger{}
-fs := afero.NewMemMapFs()
-cacheDir := "/cache"
+	mockClient := new(mocks.MockOpenAIClient)
+	logger := &mockLogger{}
+	fs := afero.NewMemMapFs()
+	cacheDir := "/cache"
 
-service := NewTranslationServiceWithCache(mockClient, logger, fs, cacheDir)
+	service := NewTranslationServiceWithCache(mockClient, logger, fs, cacheDir)
 
-assert.NotNil(t, service)
-assert.Equal(t, mockClient, service.client)
-assert.Equal(t, logger, service.logger)
-assert.Equal(t, fs, service.fs)
-assert.Equal(t, cacheDir, service.cacheDir)
-assert.NotNil(t, service.memoryCache)
+	assert.NotNil(t, service)
+	assert.Equal(t, mockClient, service.client)
+	assert.Equal(t, logger, service.logger)
+	assert.Equal(t, fs, service.fs)
+	assert.Equal(t, cacheDir, service.cacheDir)
+	assert.NotNil(t, service.memoryCache)
 }

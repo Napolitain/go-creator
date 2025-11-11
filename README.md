@@ -1,7 +1,6 @@
 # GoCreator - Video Creation Tool
 
 [![CI](https://github.com/Napolitain/gocreator/actions/workflows/ci.yml/badge.svg)](https://github.com/Napolitain/gocreator/actions/workflows/ci.yml)
-[![golangci-lint](https://github.com/Napolitain/gocreator/actions/workflows/ci.yml/badge.svg?event=push)](https://github.com/Napolitain/gocreator/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/Napolitain/gocreator/branch/main/graph/badge.svg)](https://codecov.io/gh/Napolitain/gocreator)
 [![Go Report Card](https://goreportcard.com/badge/github.com/Napolitain/gocreator)](https://goreportcard.com/report/github.com/Napolitain/gocreator)
 
