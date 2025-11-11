@@ -109,10 +109,11 @@ func runCreate(inputLang, outputLangs, googleSlidesID, configFile string, noProg
 
 	// Initialize progress UI if enabled
 	var prog *tea.Program
-	var progressModel *ui.ProgressModel
+	var progressAdapter *ui.ProgressAdapter
 	if !noProgress {
-		progressModel = ui.NewProgressModel()
+		progressModel := ui.NewProgressModel()
 		prog = tea.NewProgram(progressModel)
+		progressAdapter = ui.NewProgressAdapter(prog)
 		
 		// Run progress UI in background
 		go func() {
@@ -120,9 +121,6 @@ func runCreate(inputLang, outputLangs, googleSlidesID, configFile string, noProg
 				logger.Error("Progress UI error", "error", err)
 			}
 		}()
-		
-		// Give UI time to initialize
-		// time.Sleep(100 * time.Millisecond)
 	}
 
 	// Initialize OpenAI client
@@ -160,21 +158,20 @@ func runCreate(inputLang, outputLangs, googleSlidesID, configFile string, noProg
 		logger,
 	)
 
-	// Create video creator configuration
-	creatorCfg := services.VideoCreatorConfig{
-		RootDir:        rootDir,
-		InputLang:      cfg.Input.Lang,
-		OutputLangs:    cfg.Output.Languages,
-		GoogleSlidesID: cfg.Input.PresentationID,
+	// Create video creator configuration with progress callback
+	var progressCallback interfaces.ProgressCallback
+	if progressAdapter != nil {
+		progressCallback = progressAdapter
+	} else {
+		progressCallback = &interfaces.NoOpProgressCallback{}
 	}
 
-	// Update progress: Loading
-	if prog != nil && progressModel != nil {
-		prog.Send(ui.StageUpdateMsg{
-			StageName: "Loading",
-			Status:    ui.StatusInProgress,
-			Message:   "Loading slides and text",
-		})
+	creatorCfg := services.VideoCreatorConfig{
+		RootDir:          rootDir,
+		InputLang:        cfg.Input.Lang,
+		OutputLangs:      cfg.Output.Languages,
+		GoogleSlidesID:   cfg.Input.PresentationID,
+		ProgressCallback: progressCallback,
 	}
 
 	// Run video creation
@@ -189,16 +186,13 @@ func runCreate(inputLang, outputLangs, googleSlidesID, configFile string, noProg
 
 	// Complete progress
 	if prog != nil {
-		prog.Send(ui.StageCompleteMsg{
-			StageName: "Video Assembly",
-			Failed:    false,
-			Message:   "All videos created successfully",
-		})
 		prog.Send(ui.CompleteMsg{})
 		prog.Wait()
 	}
 
-	fmt.Println("\n✓ All videos created successfully!")
+	if noProgress {
+		fmt.Println("✓ All videos created successfully!")
+	}
 	return nil
 }
 
